@@ -211,20 +211,23 @@ def main():
         gray_batch, (labels, true_mask) = sample_batched
 
         # 搬到 GPU
-        gray_batch = gray_batch.to(device)
-        labels = labels.to(device)
-        true_mask = true_mask.to(device)
+        gray_batch = gray_batch.cuda()
+        labels = labels.cuda()
+        true_mask = true_mask.cuda()
 
         # is_normal: 0 = good, 1 = anomaly
         is_normal = labels.detach().cpu().numpy()[0]
         anomaly_score_gt.append(is_normal)
 
+        # 把 mask 轉成 numpy 格式 (H, W, C)
+        true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
+
+        # reconstruction
         with torch.no_grad():
-            # 重建
-            gray_rec, _ = model(gray_batch)
+            gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
+            joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
 
             # segmentation
-            joined_in = torch.cat((gray_rec, gray_batch), dim=1)
             out_mask = model_seg(joined_in)
             out_mask_sm = torch.softmax(out_mask, dim=1)
 
@@ -257,16 +260,27 @@ def main():
         save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
         print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
 
-        # 計算圖像級異常分數
-        out_mask_averaged = torch.nn.functional.avg_pool2d(anomaly_resized, 21, stride=1, padding=10)
-        image_score = out_mask_averaged.max(dim=2)[0].max(dim=2)[0].detach().cpu().numpy()[0]
+        # 顯示指定 index 的圖片
+        if i_batch in display_indices:
+            t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
+            display_images[cnt_display] = gray_rec[0] #gray_rec 是 tensor，可以正確 .detach() 和做 indexing
+            display_gt_images[cnt_display] = gray_batch[0]
+            display_out_masks[cnt_display] = t_mask[0]
+            display_in_masks[cnt_display] = true_mask[0]
+            cnt_display += 1
+
+        out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
+
+        out_mask_averaged = torch.nn.functional.avg_pool2d(out_mask_sm[: ,1: ,: ,:], 21, stride=1,
+                                                            padding=21 // 2).cpu().detach().numpy()
+        image_score = np.max(out_mask_averaged)
+
         anomaly_score_prediction.append(image_score)
 
-        # 計算像素級分數
-        true_mask_np = true_mask.detach().cpu().numpy()
-        out_mask_np = anomaly_resized.squeeze(1).detach().cpu().numpy()
-        total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = out_mask_np.flatten()
-        total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = true_mask_np.flatten()
+        flat_true_mask = true_mask_cv.flatten()
+        flat_out_mask = out_mask_cv.flatten()
+        total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
+        total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
 
 
