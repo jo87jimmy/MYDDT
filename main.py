@@ -235,6 +235,8 @@ def main():
 
         # 顯示指定 index 的圖片
         if i_batch in display_indices:
+            #out_mask_sm[:, 0, :, :] 是正常區域的機率
+            #out_mask_sm[:, 1, :, :] 是異常區域的機率
             t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
             display_images[cnt_display] = gray_rec[0] #gray_rec 是 tensor，可以正確 .detach() 和做 indexing
             display_gt_images[cnt_display] = gray_batch[0]
@@ -257,10 +259,18 @@ def main():
             original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
             mask_overlay = t_mask[0, 0].detach().cpu().numpy()  
             
+            # axes[1, 0].imshow(original_img, cmap='gray')  
+            # axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  
+            # axes[1, 0].set_title('Predicted Anomaly Overlay')  
+            # axes[1, 0].axis('off')  
+
+            #閾值化突出顯示
+            threshold = 0.3  
+            high_confidence_mask = np.where(mask_overlay > threshold, mask_overlay, 0)  
             axes[1, 0].imshow(original_img, cmap='gray')  
-            im = axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  
-            axes[1, 0].set_title('Predicted Anomaly Overlay')  
-            axes[1, 0].axis('off')  
+            axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
+            axes[1, 0].set_title('Predicted Anomaly Overlay')
+            axes[1, 0].axis('off')
             
             # 顯示真實的異常遮罩  
             axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
