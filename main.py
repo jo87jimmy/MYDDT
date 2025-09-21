@@ -9,7 +9,7 @@ import random  # 亂數控制
 import argparse  # 命令列參數處理
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score, average_precision_score
-from model_unet import ReconstructiveSubNetwork,DiscriminativeSubNetwork
+from model_unet import ReconstructiveSubNetwork,DiscriminativeSubNetwork,StudentReconstructiveSubNetwork
 
 def setup_seed(seed):
     # 設定隨機種子，確保實驗可重現
@@ -155,7 +155,12 @@ def main():
     # 載入模型的檢查點（checkpoint）檔案，並指定載入到的裝置（如 GPU 或 CPU）
     model_ckpt = torch.load("student_best.pth", map_location=device,weights_only=True)
     # 建立模型的結構，輸入與輸出通道皆為 3（RGB），並移動到指定裝置上
-    model = ReconstructiveSubNetwork(in_channels=3, out_channels=3).to(device)
+    model = StudentReconstructiveSubNetwork(
+            in_channels=3,
+            out_channels=3,
+            base_width=64,# 壓縮後的維度
+            teacher_base_width=128# 教師模型的維度
+        ).to(device)
     # 將模型的參數載入至模型中，使用 checkpoint 中的 'reconstructive' 欄位
     model.load_state_dict(model_ckpt)
     # 將模型設為評估模式，停用 Dropout、BatchNorm 等訓練專用機制
