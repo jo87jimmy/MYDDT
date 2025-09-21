@@ -260,8 +260,12 @@ def main():
             axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
             axes[1, 1].set_title('Ground Truth Mask')  
             axes[1, 1].axis('off')  
-            
+
+            # 保存圖片
+            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+            print(f"Saving image to: {save_path}")  # 除錯用 
             plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
+            plt.show()  # 加上這行來顯示圖片  
             plt.close()  
             cnt_display += 1
 
