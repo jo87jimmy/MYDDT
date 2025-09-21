@@ -255,9 +255,10 @@ def main():
             axes[0, 1].set_title('Original Image')  
             axes[0, 1].axis('off')  
             
-            #預測異常遮罩
-            axes[1, 0].imshow(t_mask[0,0].detach().cpu().numpy(), cmap='hot') 
-            axes[1, 0].set_title('Predicted Anomaly Overlay')
+            #檢測異常遮罩
+            axes[1, 0].imshow(t_mask[0].max(0).detach().cpu().numpy(), cmap='hot', vmin=0, vmax=1)
+            # axes[1, 0].imshow(t_mask[0,0].detach().cpu().numpy(), cmap='hot', vmin=0, vmax=1)   
+            axes[1, 0].set_title('Predicted Anomaly Overlay')  
             axes[1, 0].axis('off')
             
             # 顯示真實的異常遮罩  
@@ -286,39 +287,6 @@ def main():
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
-
-        # # 提取異常機率圖（第二個通道代表異常類別）  
-        # anomaly_map = out_mask_sm[0, 1, :, :].detach().cpu().numpy()  
-        
-        # # 將原圖轉換為可視化格式  
-        # original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
-        
-        # # 創建視覺化結果  
-        # plt.figure(figsize=(15, 5))  
-        
-        # # 顯示原圖  
-        # plt.subplot(1, 3, 1)  
-        # plt.imshow(original_img)  
-        # plt.title('Original Image')  
-        # plt.axis('off')  
-        
-        # # 顯示異常機率圖  
-        # plt.subplot(1, 3, 2)  
-        # plt.imshow(anomaly_map, cmap='hot')  
-        # plt.title('Anomaly Heatmap')  
-        # plt.axis('off')  
-        
-        # # 疊加顯示  
-        # plt.subplot(1, 3, 3)  
-        # plt.imshow(original_img)  
-        # plt.imshow(anomaly_map, alpha=0.5, cmap='hot')  
-        # plt.title('Overlay')  
-        # plt.axis('off')  
-        
-        # # 保存圖片  
-        # plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png")  
-        # plt.close()
-
 
     anomaly_score_prediction = np.array(anomaly_score_prediction)
     anomaly_score_gt = np.array(anomaly_score_gt)
