@@ -256,7 +256,7 @@ def main():
             axes[0, 1].axis('off')  
             
             #預測異常遮罩
-            axes[1, 0].imshow(t_mask[0].detach().cpu().numpy(), cmap='hot') 
+            axes[1, 0].imshow(t_mask[0,0].detach().cpu().numpy(), cmap='hot') 
             axes[1, 0].set_title('Predicted Anomaly Overlay')
             axes[1, 0].axis('off')
             
