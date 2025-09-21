@@ -191,17 +191,23 @@ def main():
     display_indices = np.random.randint(len(dataLoader), size=(16,))
 
     for i_batch, sample_batched in enumerate(dataLoader):
+        # 解構 batch
+        gray_batch, (labels, true_mask) = sample_batched
+        gray_batch = gray_batch.cuda()
+        labels = labels.cuda()
+        true_mask = true_mask.cuda()
 
-        gray_batch = sample_batched["image"].cuda()
-
-        is_normal = sample_batched["has_anomaly"].detach().numpy()[0 ,0]
+        # is_normal: 0 = good, 1 = anomaly
+        is_normal = labels.detach().cpu().numpy()[0]
+        
         anomaly_score_gt.append(is_normal)
         true_mask = sample_batched["mask"]
+        # 把 mask 轉成 numpy 格式 (H, W, C)
         true_mask_cv = true_mask.detach().numpy()[0, :, :, :].transpose((1, 2, 0))
-
+        # reconstruction
         gray_rec = model(gray_batch)
         joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
-
+        # segmentation
         out_mask = model_seg(joined_in)
         out_mask_sm = torch.softmax(out_mask, dim=1)
 
