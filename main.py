@@ -281,19 +281,51 @@ def main():
         flat_out_mask = out_mask_cv.flatten()
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
-
-        # 取出異常機率圖的第二個通道（異常類別）  
-        anomaly_mask = out_mask_sm[:, 1:, :, :]  # [batch_size, 1, 256, 256]  
-        
-        # 將原圖和異常機率圖串接  
-        combined = torch.cat([  
-            gray_batch,     # [batch_size, 3, 256, 256] 原圖  
-            anomaly_mask    # [batch_size, 1, 256, 256] 異常機率圖  
-        ], dim=1)  # 在通道維度串接，結果為 [batch_size, 4, 256, 256]
-        # 儲存比較圖
-        save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
-        print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
         mask_cnt += 1
+
+        # # 取出異常機率圖的第二個通道（異常類別）  
+        # anomaly_mask = out_mask_sm[:, 1:, :, :]  # [batch_size, 1, 256, 256]  
+        
+        # # 將原圖和異常機率圖串接  
+        # combined = torch.cat([  
+        #     gray_batch,     # [batch_size, 3, 256, 256] 原圖  
+        #     anomaly_mask    # [batch_size, 1, 256, 256] 異常機率圖  
+        # ], dim=1)  # 在通道維度串接，結果為 [batch_size, 4, 256, 256]
+        # # 儲存比較圖
+        # save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
+        # print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
+
+        # 提取異常機率圖（第二個通道代表異常類別）  
+        anomaly_map = out_mask_sm[0, 1, :, :].detach().cpu().numpy()  
+        
+        # 將原圖轉換為可視化格式  
+        original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
+        
+        # 創建視覺化結果  
+        plt.figure(figsize=(15, 5))  
+        
+        # 顯示原圖  
+        plt.subplot(1, 3, 1)  
+        plt.imshow(original_img)  
+        plt.title('Original Image')  
+        plt.axis('off')  
+        
+        # 顯示異常機率圖  
+        plt.subplot(1, 3, 2)  
+        plt.imshow(anomaly_map, cmap='hot')  
+        plt.title('Anomaly Heatmap')  
+        plt.axis('off')  
+        
+        # 疊加顯示  
+        plt.subplot(1, 3, 3)  
+        plt.imshow(original_img)  
+        plt.imshow(anomaly_map, alpha=0.5, cmap='hot')  
+        plt.title('Overlay')  
+        plt.axis('off')  
+        
+        # 保存圖片  
+        plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png")  
+        plt.close()
 
 
     anomaly_score_prediction = np.array(anomaly_score_prediction)
