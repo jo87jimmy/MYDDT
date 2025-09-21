@@ -255,20 +255,21 @@ def main():
             axes[0, 1].set_title('Original Image')  
             axes[0, 1].axis('off')  
             
-            # 改良的預測異常遮罩顯示 - 使用疊加方式  
+            #預測異常遮罩
             original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
             mask_overlay = t_mask[0, 0].detach().cpu().numpy()  
-            
-            # axes[1, 0].imshow(original_img, cmap='gray')  
-            # axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  
-            # axes[1, 0].set_title('Predicted Anomaly Overlay')  
-            # axes[1, 0].axis('off')  
 
-            #閾值化突出顯示
-            threshold = 0.3  
-            high_confidence_mask = np.where(mask_overlay > threshold, mask_overlay, 0)  
+            # 閾值化突出顯示 - 使用疊加方式  
+            # threshold = 0.3  
+            # high_confidence_mask = np.where(mask_overlay > threshold, mask_overlay, 0)  
+            # axes[1, 0].imshow(original_img, cmap='gray')  
+            # axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
+
+            # 使用更強烈的色彩映射  
             axes[1, 0].imshow(original_img, cmap='gray')  
-            axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
+            im = axes[1, 0].imshow(mask_overlay, cmap='jet', alpha=0.7, vmin=0, vmax=1)  
+            plt.colorbar(im, ax=axes[1, 0], fraction=0.046, pad=0.04)
+
             axes[1, 0].set_title('Predicted Anomaly Overlay')
             axes[1, 0].axis('off')
             
