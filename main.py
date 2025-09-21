@@ -243,43 +243,46 @@ def main():
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
 
-            fig, axes = plt.subplots(1, 4, figsize=(16, 4))  
+            # # 取異常區域，若有多個 channel 就取最大值
+            # anomaly_map = t_mask[0].max(0)[0].detach().cpu().numpy()  # shape (H, W)
+
+            # # 原圖轉 numpy
+            # original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
+
+            # # 建立 overlay：用紅色顯示異常
+            # mask_overlay = np.zeros_like(original_img)
+            # mask_overlay[..., 0] = anomaly_map  # 紅色通道
+
+            # # 新增直接顯示圖片的程式碼  
+            # fig, axes = plt.subplots(2, 2, figsize=(12, 10))  
             
-            # 原始圖像  
-            orig_img = display_gt_images[i_batch].cpu().numpy().transpose(1, 2, 0)  
-            axes[0].imshow(orig_img)  
-            axes[0].set_title('Original Image')  
-            axes[0].axis('off')  
+            # # 顯示重建圖片  
+            # axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))  
+            # axes[0, 0].set_title('Reconstructed Image')  
+            # axes[0, 0].axis('off')  
             
-            # 異常圖疊加  
-            anomaly_overlay = orig_img.copy()  
-            anomaly_map = display_out_masks[i_batch, 0].cpu().numpy()  
-            # 創建熱力圖疊加  
-            heatmap = plt.cm.jet(anomaly_map)[:, :, :3]  
-            anomaly_overlay = 0.7 * orig_img + 0.3 * heatmap  
-            axes[1].imshow(anomaly_overlay)  
-            axes[1].set_title('Anomaly Map Overlay')  
-            axes[1].axis('off')  
+            # # 顯示原始圖片  
+            # axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))  
+            # axes[0, 1].set_title('Original Image')  
+            # axes[0, 1].axis('off')  
             
-            # 異常圖  
-            axes[2].imshow(anomaly_map, cmap='jet')  
-            axes[2].set_title('Anomaly Map')  
-            axes[2].axis('off')  
+            # #檢測異常遮罩
+            # axes[1, 0].imshow(original_img, cmap='gray')
+            # axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)
+            # axes[1, 0].set_title('Anomaly Overlay')
+            # axes[1, 0].axis('off')
             
-            # 真實標註  
-            gt_mask = display_in_masks[i_batch, 0].cpu().numpy()  
-            axes[3].imshow(gt_mask, cmap='gray')  
-            axes[3].set_title('Ground Truth')  
-            axes[3].axis('off')  
-            
-            plt.tight_layout()  
+            # # 顯示真實的異常遮罩  
+            # axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
+            # axes[1, 1].set_title('Ground Truth Mask')  
+            # axes[1, 1].axis('off')  
 
             # # 保存圖片
-            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-            print(f"Saving image to: {save_path}")  # 除錯用 
-            plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
-            plt.show()  # 加上這行來顯示圖片  
-            plt.close()  
+            # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+            # print(f"Saving image to: {save_path}")  # 除錯用 
+            # plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
+            # plt.show()  # 加上這行來顯示圖片  
+            # plt.close()  
             cnt_display += 1
 
         # heatmap = display_out_masks.cpu().numpy()
@@ -331,6 +334,45 @@ def main():
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
+
+    # 保存定性結果  
+    for idx in range(min(cnt_display, 16)):  
+        fig, axes = plt.subplots(1, 4, figsize=(16, 4))  
+        
+        # 原始圖像  
+        orig_img = display_gt_images[idx].cpu().numpy().transpose(1, 2, 0)  
+        axes[0].imshow(orig_img)  
+        axes[0].set_title('Original Image')  
+        axes[0].axis('off')  
+        
+        # 異常圖疊加  
+        anomaly_overlay = orig_img.copy()  
+        anomaly_map = display_out_masks[idx, 0].cpu().numpy()  
+        # 創建熱力圖疊加  
+        heatmap = plt.cm.jet(anomaly_map)[:, :, :3]  
+        anomaly_overlay = 0.7 * orig_img + 0.3 * heatmap  
+        axes[1].imshow(anomaly_overlay)  
+        axes[1].set_title('Anomaly Map Overlay')  
+        axes[1].axis('off')  
+        
+        # 異常圖  
+        axes[2].imshow(anomaly_map, cmap='jet')  
+        axes[2].set_title('Anomaly Map')  
+        axes[2].axis('off')  
+        
+        # 真實標註  
+        gt_mask = display_in_masks[idx, 0].cpu().numpy()  
+        axes[3].imshow(gt_mask, cmap='gray')  
+        axes[3].set_title('Ground Truth')  
+        axes[3].axis('off')  
+        
+        plt.tight_layout()  
+        # 存檔 + 顯示
+        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+        print(f"Saving image to: {save_path}")  # 除錯用
+        plt.savefig(save_path)
+        plt.show()
+        plt.close()
 
     anomaly_score_prediction = np.array(anomaly_score_prediction)
     anomaly_score_gt = np.array(anomaly_score_gt)
