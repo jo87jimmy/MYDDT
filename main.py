@@ -170,7 +170,7 @@ def main():
     # 載入模型的檢查點（checkpoint）檔案，並指定載入到的裝置（如 GPU 或 CPU）
     model_seg_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle__seg.pckl", map_location=device,weights_only=True)
     # 建立模型的結構，輸入與輸出通道皆為 3（RGB），並移動到指定裝置上
-    model_seg = DiscriminativeSubNetwork(in_channels=3, out_channels=3).to(device)
+    model_seg = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(device)
     # 將模型的參數載入至模型中，使用 checkpoint 中的 'reconstructive' 欄位
     model_seg.load_state_dict(model_seg_ckpt)
     # 將模型設為評估模式，停用 Dropout、BatchNorm 等訓練專用機制
