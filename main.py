@@ -231,34 +231,34 @@ def main():
             out_mask = model_seg(joined_in)
             out_mask_sm = torch.softmax(out_mask, dim=1)
 
-        # 取異常區域 channel
-        anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
+        # # 取異常區域 channel
+        # anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
 
-        # anomaly 原本是 (B,1,H,W)
-        anomaly_resized = F.interpolate(anomaly, size=(gray_batch.size(2), gray_batch.size(3)),
-                                        mode='bilinear', align_corners=False)
+        # # anomaly 原本是 (B,1,H,W)
+        # anomaly_resized = F.interpolate(anomaly, size=(gray_batch.size(2), gray_batch.size(3)),
+        #                                 mode='bilinear', align_corners=False)
 
-        # 正規化
-        anomaly_min = anomaly_resized.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
-        anomaly_max = anomaly_resized.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
-        anomaly_norm = (anomaly_resized - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
-        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)  # 現在尺寸 (B,3,H,W)
+        # # 正規化
+        # anomaly_min = anomaly_resized.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
+        # anomaly_max = anomaly_resized.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
+        # anomaly_norm = (anomaly_resized - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
+        # anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)  # 現在尺寸 (B,3,H,W)
 
-        # 計算重建誤差
-        error_map = torch.abs(gray_batch - gray_rec)# (B,3,H,W)
-        error_rgb = error_map
+        # # 計算重建誤差
+        # error_map = torch.abs(gray_batch - gray_rec)# (B,3,H,W)
+        # error_rgb = error_map
 
-        print(gray_batch.shape, error_rgb.shape, anomaly_rgb.shape)
-        # 拼接顯示: 原圖 | 重建誤差 | segmentation heatmap
-        combined = torch.cat([
-            gray_batch,  # 原圖
-            error_rgb,                    # 重建誤差
-            anomaly_rgb                   # segmentation heatmap
-        ], dim=3)  # 沿寬度拼接
+        # print(gray_batch.shape, error_rgb.shape, anomaly_rgb.shape)
+        # # 拼接顯示: 原圖 | 重建誤差 | segmentation heatmap
+        # combined = torch.cat([
+        #     gray_batch,  # 原圖
+        #     error_rgb,                    # 重建誤差
+        #     anomaly_rgb                   # segmentation heatmap
+        # ], dim=3)  # 沿寬度拼接
 
-        # 儲存比較圖
-        save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
-        print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
+        # # 儲存比較圖
+        # save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
+        # print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
 
         # 顯示指定 index 的圖片
         if i_batch in display_indices:
@@ -281,6 +281,18 @@ def main():
         flat_out_mask = out_mask_cv.flatten()
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
+
+        # 取出異常機率圖的第二個通道（異常類別）  
+        anomaly_mask = out_mask_sm[:, 1:, :, :]  # [batch_size, 1, 256, 256]  
+        
+        # 將原圖和異常機率圖串接  
+        combined = torch.cat([  
+            gray_batch,     # [batch_size, 3, 256, 256] 原圖  
+            anomaly_mask    # [batch_size, 1, 256, 256] 異常機率圖  
+        ], dim=1)  # 在通道維度串接，結果為 [batch_size, 4, 256, 256]
+        # 儲存比較圖
+        save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
+        print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
         mask_cnt += 1
 
 
