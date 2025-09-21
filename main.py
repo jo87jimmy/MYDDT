@@ -210,68 +210,52 @@ def main():
         gray_batch, (labels, true_mask) = sample_batched
 
         # 搬到 GPU
-        gray_batch = gray_batch.cuda()
-        labels = labels.cuda()
-        true_mask = true_mask.cuda()
+        gray_batch = gray_batch.to(device)
+        labels = labels.to(device)
+        true_mask = true_mask.to(device)
 
         # is_normal: 0 = good, 1 = anomaly
         is_normal = labels.detach().cpu().numpy()[0]
         anomaly_score_gt.append(is_normal)
 
-        # 把 mask 轉成 numpy 格式 (H, W, C)
-        true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
-
-        # reconstruction
         with torch.no_grad():
-            gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
-            joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
-
+            # 重建
+            gray_rec,_ = model(gray_batch)
             # segmentation
+            joined_in = torch.cat((gray_rec, gray_batch), dim=1)
             out_mask = model_seg(joined_in)
             out_mask_sm = torch.softmax(out_mask, dim=1)
 
         # 取異常區域 channel
         anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
 
-        # 將異常圖正規化到 0~1
+        # 異常圖正規化 (0~1)
         anomaly_min = anomaly.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
         anomaly_max = anomaly.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
         anomaly_norm = (anomaly - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
+        anomaly_rgb = anomaly_norm.repeat(1,3,1,1)
 
-        # 將異常圖從 1 channel 擴展成 3 channel RGB
-        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)
+        # 計算重建誤差
+        error_map = torch.abs(gray_batch - gray_rec)
+        error_rgb = error_map.repeat(1,3,1,1)
 
-        # 將 mask 也擴展成 RGB
-        masks_rgb = true_mask.repeat(1, 3, 1, 1)
-
-        # 將原圖、異常圖、mask 沿寬度拼接
-        combined = torch.cat([gray_batch, anomaly_rgb, masks_rgb], dim=3)  # 沿 width 拼接
+        # 將原圖、重建誤差、segmentation heatmap 沿寬度拼接
+        combined = torch.cat([gray_batch.repeat(1,3,1,1), error_rgb, anomaly_rgb], dim=3)
 
         # 儲存比較圖
         save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
         print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
 
-        # 顯示指定 index 的圖片
-        if i_batch in display_indices:
-            t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
-            display_images[cnt_display] = gray_rec[0] #gray_rec 是 tensor，可以正確 .detach() 和做 indexing
-            display_gt_images[cnt_display] = gray_batch[0]
-            display_out_masks[cnt_display] = t_mask[0]
-            display_in_masks[cnt_display] = true_mask[0]
-            cnt_display += 1
-
-        out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
-
-        out_mask_averaged = torch.nn.functional.avg_pool2d(out_mask_sm[: ,1: ,: ,:], 21, stride=1,
-                                                            padding=21 // 2).cpu().detach().numpy()
+        # 計算圖像級異常分數
+        out_mask_averaged = torch.nn.functional.avg_pool2d(anomaly, 21, stride=1, padding=10).cpu().detach().numpy()
         image_score = np.max(out_mask_averaged)
-
         anomaly_score_prediction.append(image_score)
 
-        flat_true_mask = true_mask_cv.flatten()
-        flat_out_mask = out_mask_cv.flatten()
-        total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
-        total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
+        # 計算像素級分數
+        true_mask_np = true_mask.detach().cpu().numpy()
+        out_mask_np = anomaly.squeeze(1).detach().cpu().numpy()
+        total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = out_mask_np.flatten()
+        total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = true_mask_np.flatten()
         mask_cnt += 1
 
 
