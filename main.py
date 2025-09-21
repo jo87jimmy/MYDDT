@@ -253,9 +253,13 @@ def main():
             axes[0, 1].set_title('Original Image')  
             axes[0, 1].axis('off')  
             
-            # 顯示預測的異常遮罩  
-            axes[1, 0].imshow(t_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
-            axes[1, 0].set_title('Predicted Anomaly Mask')  
+            # 改良的預測異常遮罩顯示 - 使用疊加方式  
+            original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
+            mask_overlay = t_mask[0, 0].detach().cpu().numpy()  
+            
+            axes[1, 0].imshow(original_img, cmap='gray')  
+            im = axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  
+            axes[1, 0].set_title('Predicted Anomaly Overlay')  
             axes[1, 0].axis('off')  
             
             # 顯示真實的異常遮罩  
