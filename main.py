@@ -265,17 +265,25 @@ def main():
             # axes[1, 0].imshow(original_img, cmap='gray')  
             # axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
 
-            # 二值化遮罩並找出輪廓  
-            # binary_mask = (mask_overlay > 0.5).astype(np.uint8)  
-            # contours, _ = cv2.findContours(binary_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  
-            # axes[1, 0].imshow(original_img, cmap='gray')  
-            # for contour in contours:  
-            #     axes[1, 0].plot(contour[:, 0, 0], contour[:, 0, 1], 'r-', linewidth=2)
+            threshold = 0.5  
+            binary_mask = mask_overlay > threshold  
+            # 找出異常區域的輪廓  
+            binary_mask_uint8 = (binary_mask * 255).astype(np.uint8)  
+            contours, _ = cv2.findContours(binary_mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  
+            
+            # 在原始圖像上畫出輪廓  
+            img_with_contours = original_img.copy()  
+            for contour in contours:  
+                cv2.drawContours(img_with_contours, [contour], -1, (1, 0, 0), 2)  # 紅色輪廓  
+            
+            axes[1, 1].imshow(img_with_contours)  
+            axes[1, 1].set_title('Anomaly Contours')  
+            axes[1, 1].axis('off')
 
             # 使用更強烈的色彩映射  
             # axes[1, 0].imshow(original_img, cmap='gray')  
-            im = axes[1, 0].imshow(mask_overlay, cmap='jet', alpha=0.7, vmin=0, vmax=1)  
-            plt.colorbar(im, ax=axes[1, 0], fraction=0.046, pad=0.04)
+            # im = axes[1, 0].imshow(mask_overlay, cmap='jet', alpha=0.7, vmin=0, vmax=1)  
+            # plt.colorbar(im, ax=axes[1, 0], fraction=0.046, pad=0.04)
 
             axes[1, 0].set_title('Predicted Anomaly Overlay')
             axes[1, 0].axis('off')
