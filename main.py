@@ -207,12 +207,13 @@ def main():
         true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
 
         # reconstruction
-        gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
-        joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
+        with torch.no_grad():
+            gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
+            joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
 
-        # segmentation
-        out_mask = model_seg(joined_in)
-        out_mask_sm = torch.softmax(out_mask, dim=1)
+            # segmentation
+            out_mask = model_seg(joined_in)
+            out_mask_sm = torch.softmax(out_mask, dim=1)
 
         # 顯示指定 index 的圖片
         if i_batch in display_indices:
