@@ -243,47 +243,61 @@ def main():
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
 
-            # 取異常區域，若有多個 channel 就取最大值
-            anomaly_map = t_mask[0].max(0)[0].detach().cpu().numpy()  # shape (H, W)
+            # # 取異常區域，若有多個 channel 就取最大值
+            # anomaly_map = t_mask[0].max(0)[0].detach().cpu().numpy()  # shape (H, W)
 
-            # 原圖轉 numpy
-            original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
+            # # 原圖轉 numpy
+            # original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
 
-            # 建立 overlay：用紅色顯示異常
-            mask_overlay = np.zeros_like(original_img)
-            mask_overlay[..., 0] = anomaly_map  # 紅色通道
+            # # 建立 overlay：用紅色顯示異常
+            # mask_overlay = np.zeros_like(original_img)
+            # mask_overlay[..., 0] = anomaly_map  # 紅色通道
 
-            # 新增直接顯示圖片的程式碼  
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))  
+            # # 新增直接顯示圖片的程式碼  
+            # fig, axes = plt.subplots(2, 2, figsize=(12, 10))  
             
-            # 顯示重建圖片  
-            axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))  
-            axes[0, 0].set_title('Reconstructed Image')  
-            axes[0, 0].axis('off')  
+            # # 顯示重建圖片  
+            # axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))  
+            # axes[0, 0].set_title('Reconstructed Image')  
+            # axes[0, 0].axis('off')  
             
-            # 顯示原始圖片  
-            axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))  
-            axes[0, 1].set_title('Original Image')  
-            axes[0, 1].axis('off')  
+            # # 顯示原始圖片  
+            # axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))  
+            # axes[0, 1].set_title('Original Image')  
+            # axes[0, 1].axis('off')  
             
-            #檢測異常遮罩
-            axes[1, 0].imshow(original_img, cmap='gray')
-            axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)
-            axes[1, 0].set_title('Anomaly Overlay')
-            axes[1, 0].axis('off')
+            # #檢測異常遮罩
+            # axes[1, 0].imshow(original_img, cmap='gray')
+            # axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)
+            # axes[1, 0].set_title('Anomaly Overlay')
+            # axes[1, 0].axis('off')
             
-            # 顯示真實的異常遮罩  
-            axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
-            axes[1, 1].set_title('Ground Truth Mask')  
-            axes[1, 1].axis('off')  
+            # # 顯示真實的異常遮罩  
+            # axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
+            # axes[1, 1].set_title('Ground Truth Mask')  
+            # axes[1, 1].axis('off')  
 
-            # 保存圖片
-            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-            print(f"Saving image to: {save_path}")  # 除錯用 
-            plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
-            plt.show()  # 加上這行來顯示圖片  
-            plt.close()  
+            # # 保存圖片
+            # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+            # print(f"Saving image to: {save_path}")  # 除錯用 
+            # plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
+            # plt.show()  # 加上這行來顯示圖片  
+            # plt.close()  
             cnt_display += 1
+
+        heatmap = display_out_masks.cpu().numpy()
+        fig ,axes = plt.subplots(4,4,figsize=(12,12))
+        for i in range(16):
+            row, col = i // 4, i % 4
+            axes[row,col].imshow(heatmap[i,0], cmap='hot',interpolation='nearest')
+            axes[row,col].set_title(f"Heatmap {i+1}")
+            axes[row,col].axis('off')
+        # 保存圖片
+        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+        print(f"Saving image to: {save_path}")  # 除錯用 
+        plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
+        plt.show()  # 加上這行來顯示圖片  
+        plt.close()  
 
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
 
