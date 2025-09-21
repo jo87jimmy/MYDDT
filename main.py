@@ -242,6 +242,17 @@ def main():
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
+
+            # 取異常區域，若有多個 channel 就取最大值
+            anomaly_map = t_mask[0].max(0)[0].detach().cpu().numpy()  # shape (H, W)
+
+            # 原圖轉 numpy
+            original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
+
+            # 建立 overlay：用紅色顯示異常
+            mask_overlay = np.zeros_like(original_img)
+            mask_overlay[..., 0] = anomaly_map  # 紅色通道
+
             # 新增直接顯示圖片的程式碼  
             fig, axes = plt.subplots(2, 2, figsize=(12, 10))  
             
@@ -256,9 +267,9 @@ def main():
             axes[0, 1].axis('off')  
             
             #檢測異常遮罩
-            axes[1, 0].imshow(t_mask[0].max(0).detach().cpu().numpy(), cmap='hot', vmin=0, vmax=1)
-            # axes[1, 0].imshow(t_mask[0,0].detach().cpu().numpy(), cmap='hot', vmin=0, vmax=1)   
-            axes[1, 0].set_title('Predicted Anomaly Overlay')  
+            axes[1, 0].imshow(original_img, cmap='gray')
+            axes[1, 0].imshow(mask_overlay, cmap='Reds', alpha=0.6, vmin=0, vmax=1)
+            axes[1, 0].set_title('Anomaly Overlay')
             axes[1, 0].axis('off')
             
             # 顯示真實的異常遮罩  
