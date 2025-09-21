@@ -368,7 +368,7 @@ def main():
         
         plt.tight_layout()  
         # 存檔 + 顯示
-        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+        save_path = f"{inference_results}/comparison_batch{idx}.png" 
         print(f"Saving image to: {save_path}")  # 除錯用
         plt.savefig(save_path)
         plt.show()
