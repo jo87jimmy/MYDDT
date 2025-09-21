@@ -242,13 +242,13 @@ def main():
         anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)  # 現在尺寸 (B,3,H,W)
 
         # 計算重建誤差
-        error_map = torch.abs(gray_batch - gray_rec)
-        error_rgb = error_map.repeat(1, 3, 1, 1)
+        error_map = torch.abs(gray_batch - gray_rec)# (B,3,H,W)
+        error_rgb = error_map
 
         print(gray_batch.shape, error_rgb.shape, anomaly_rgb.shape)
         # 拼接顯示: 原圖 | 重建誤差 | segmentation heatmap
         combined = torch.cat([
-            gray_batch.repeat(1,3,1,1),  # 原圖
+            gray_batch,  # 原圖
             error_rgb,                    # 重建誤差
             anomaly_rgb                   # segmentation heatmap
         ], dim=3)  # 沿寬度拼接
