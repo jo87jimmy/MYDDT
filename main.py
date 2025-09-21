@@ -265,9 +265,9 @@ def main():
             # axes[1, 0].imshow(original_img, cmap='gray')  
             # axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
 
+            # 找出異常區域的輪廓  
             threshold = 0.5  
             binary_mask = mask_overlay > threshold  
-            # 找出異常區域的輪廓  
             binary_mask_uint8 = (binary_mask * 255).astype(np.uint8)  
             contours, _ = cv2.findContours(binary_mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  
             
@@ -276,9 +276,7 @@ def main():
             for contour in contours:  
                 cv2.drawContours(img_with_contours, [contour], -1, (1, 0, 0), 2)  # 紅色輪廓  
             
-            axes[1, 1].imshow(img_with_contours)  
-            axes[1, 1].set_title('Anomaly Contours')  
-            axes[1, 1].axis('off')
+            axes[1,0].imshow(img_with_contours)  
 
             # 使用更強烈的色彩映射  
             # axes[1, 0].imshow(original_img, cmap='gray')  
