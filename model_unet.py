@@ -2,20 +2,31 @@ import torch
 import torch.nn as nn
 
 
+# class ReconstructiveSubNetwork(nn.Module):
+#     def __init__(self, in_channels=3, out_channels=3, base_width=128):
+#         super().__init__()
+#         self.encoder = EncoderReconstructive(in_channels, base_width)
+#         self.decoder = DecoderReconstructive(base_width, out_channels=out_channels)
+
+#     def forward(self, x, return_feats=False):
+#         """
+#         - return_feats: 是否返回 encoder 特徵，用於蒸餾
+#         """
+#         feats = self.encoder(x)      # encoder 最後一層特徵
+#         output = self.decoder(feats) # 重建圖
+#         if return_feats:
+#             return output, feats
+#         return output
+
 class ReconstructiveSubNetwork(nn.Module):
-    def __init__(self, in_channels=3, out_channels=3, base_width=128):
-        super().__init__()
+    def __init__(self,in_channels=3, out_channels=3, base_width=128):
+        super(ReconstructiveSubNetwork, self).__init__()
         self.encoder = EncoderReconstructive(in_channels, base_width)
         self.decoder = DecoderReconstructive(base_width, out_channels=out_channels)
 
-    def forward(self, x, return_feats=False):
-        """
-        - return_feats: 是否返回 encoder 特徵，用於蒸餾
-        """
-        feats = self.encoder(x)      # encoder 最後一層特徵
-        output = self.decoder(feats) # 重建圖
-        if return_feats:
-            return output, feats
+    def forward(self, x):
+        b5 = self.encoder(x)
+        output = self.decoder(b5)
         return output
 
 class StudentReconstructiveSubNetwork(nn.Module):
