@@ -191,29 +191,32 @@ def main():
     display_indices = np.random.randint(len(dataLoader), size=(16,))
 
     for i_batch, sample_batched in enumerate(dataLoader):
-        # 解構 batch
+        # Dataset 回傳: (image, (label, mask))
         gray_batch, (labels, true_mask) = sample_batched
+
+        # 搬到 GPU
         gray_batch = gray_batch.cuda()
         labels = labels.cuda()
         true_mask = true_mask.cuda()
 
         # is_normal: 0 = good, 1 = anomaly
         is_normal = labels.detach().cpu().numpy()[0]
-        
         anomaly_score_gt.append(is_normal)
-        true_mask = sample_batched["mask"]
+
         # 把 mask 轉成 numpy 格式 (H, W, C)
-        true_mask_cv = true_mask.detach().numpy()[0, :, :, :].transpose((1, 2, 0))
+        true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
+
         # reconstruction
         gray_rec = model(gray_batch)
         joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
+
         # segmentation
         out_mask = model_seg(joined_in)
         out_mask_sm = torch.softmax(out_mask, dim=1)
 
-
+        # 顯示指定 index 的圖片
         if i_batch in display_indices:
-            t_mask = out_mask_sm[:, 1:, :, :]
+            t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
             display_images[cnt_display] = gray_rec[0]
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
