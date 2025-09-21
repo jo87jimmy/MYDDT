@@ -10,6 +10,9 @@ import argparse  # 命令列參數處理
 from sklearn.metrics import roc_auc_score
 from sklearn.metrics import roc_auc_score, average_precision_score
 from model_unet import ReconstructiveSubNetwork,DiscriminativeSubNetwork,StudentReconstructiveSubNetwork
+import matplotlib.pyplot as plt
+import cv2
+from torchvision.utils import make_grid, save_image
 
 def setup_seed(seed):
     # 設定隨機種子，確保實驗可重現
@@ -175,6 +178,13 @@ def main():
     model_seg.load_state_dict(model_seg_ckpt)
     # 將模型設為評估模式，停用 Dropout、BatchNorm 等訓練專用機制
     model_seg.eval()   
+    
+    # 主儲存資料夾路徑
+    save_root = "./save_files"
+
+    # 若主資料夾不存在，則建立
+    if not os.path.exists(save_root):
+        os.makedirs(save_root)
 
     total_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))
     total_gt_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))
@@ -189,6 +199,11 @@ def main():
     display_in_masks = torch.zeros((16 ,1 ,256 ,256)).cuda()
     cnt_display = 0
     display_indices = np.random.randint(len(dataLoader), size=(16,))
+
+    # 設定推論結果儲存的資料夾路徑為 save_root/inference_results
+    inference_results = os.path.join(save_root, "inference_results")
+    # 若資料夾不存在則建立，用來儲存推論圖像與報告
+    os.makedirs(inference_results, exist_ok=True)
 
     for i_batch, sample_batched in enumerate(dataLoader):
         # Dataset 回傳: (image, (label, mask))
@@ -215,6 +230,27 @@ def main():
             out_mask = model_seg(joined_in)
             out_mask_sm = torch.softmax(out_mask, dim=1)
 
+        # 取異常區域 channel
+        anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
+
+        # 將異常圖正規化到 0~1
+        anomaly_min = anomaly.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
+        anomaly_max = anomaly.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
+        anomaly_norm = (anomaly - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
+
+        # 將異常圖從 1 channel 擴展成 3 channel RGB
+        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)
+
+        # 將 mask 也擴展成 RGB
+        masks_rgb = true_mask.repeat(1, 3, 1, 1)
+
+        # 將原圖、異常圖、mask 沿寬度拼接
+        combined = torch.cat([gray_batch, anomaly_rgb, masks_rgb], dim=3)  # 沿 width 拼接
+
+        # 儲存比較圖
+        save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
+        print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
+
         # 顯示指定 index 的圖片
         if i_batch in display_indices:
             t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
@@ -223,7 +259,6 @@ def main():
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
             cnt_display += 1
-
 
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
 
@@ -238,6 +273,7 @@ def main():
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
+
 
     anomaly_score_prediction = np.array(anomaly_score_prediction)
     anomaly_score_gt = np.array(anomaly_score_gt)
