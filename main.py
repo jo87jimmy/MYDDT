@@ -158,7 +158,7 @@ def main():
     # Load model
     # 載入模型的檢查點（checkpoint）檔案，並指定載入到的裝置（如 GPU 或 CPU）
     model_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle_.pckl", map_location=device,weights_only=True)
-    model = ReconstructiveSubNetwork(in_channels=3, out_channels=3)
+    model = ReconstructiveSubNetwork(in_channels=3, out_channels=3).to(device)
     # 建立模型的結構，輸入與輸出通道皆為 3（RGB），並移動到指定裝置上
     # model = StudentReconstructiveSubNetwork(
     #         in_channels=3,
