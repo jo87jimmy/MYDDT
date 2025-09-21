@@ -13,6 +13,7 @@ from model_unet import ReconstructiveSubNetwork,DiscriminativeSubNetwork,Student
 import matplotlib.pyplot as plt
 import cv2
 from torchvision.utils import make_grid, save_image
+import torch.nn.functional as F
 
 def setup_seed(seed):
     # 設定隨機種子，確保實驗可重現
@@ -220,7 +221,8 @@ def main():
 
         with torch.no_grad():
             # 重建
-            gray_rec,_ = model(gray_batch)
+            gray_rec, _ = model(gray_batch)
+
             # segmentation
             joined_in = torch.cat((gray_rec, gray_batch), dim=1)
             out_mask = model_seg(joined_in)
@@ -229,31 +231,35 @@ def main():
         # 取異常區域 channel
         anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
 
+        # 將 anomaly resize 回原圖大小 (H, W)
+        anomaly_resized = F.interpolate(anomaly, size=(gray_batch.size(2), gray_batch.size(3)),
+                                        mode='bilinear', align_corners=False)
+
         # 異常圖正規化 (0~1)
-        anomaly_min = anomaly.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
-        anomaly_max = anomaly.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
-        anomaly_norm = (anomaly - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
-        anomaly_rgb = anomaly_norm.repeat(1,3,1,1)
+        anomaly_min = anomaly_resized.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
+        anomaly_max = anomaly_resized.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
+        anomaly_norm = (anomaly_resized - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
+        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)
 
         # 計算重建誤差
         error_map = torch.abs(gray_batch - gray_rec)
-        error_rgb = error_map.repeat(1,3,1,1)
+        error_rgb = error_map.repeat(1, 3, 1, 1)
 
-        # 將原圖、重建誤差、segmentation heatmap 沿寬度拼接
-        combined = torch.cat([gray_batch.repeat(1,3,1,1), error_rgb, anomaly_rgb], dim=3)
+        # 拼接顯示: 原圖 | 重建誤差 | segmentation heatmap
+        combined = torch.cat([gray_batch.repeat(1, 3, 1, 1), error_rgb, anomaly_rgb], dim=3)
 
         # 儲存比較圖
         save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
         print(f"Saved batch {i_batch+1} comparison to {inference_results}/comparison_batch{i_batch+1}.png")
 
         # 計算圖像級異常分數
-        out_mask_averaged = torch.nn.functional.avg_pool2d(anomaly, 21, stride=1, padding=10).cpu().detach().numpy()
-        image_score = np.max(out_mask_averaged)
+        out_mask_averaged = torch.nn.functional.avg_pool2d(anomaly_resized, 21, stride=1, padding=10)
+        image_score = out_mask_averaged.max(dim=2)[0].max(dim=2)[0].detach().cpu().numpy()[0]
         anomaly_score_prediction.append(image_score)
 
         # 計算像素級分數
         true_mask_np = true_mask.detach().cpu().numpy()
-        out_mask_np = anomaly.squeeze(1).detach().cpu().numpy()
+        out_mask_np = anomaly_resized.squeeze(1).detach().cpu().numpy()
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = out_mask_np.flatten()
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = true_mask_np.flatten()
         mask_cnt += 1
