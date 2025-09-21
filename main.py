@@ -207,7 +207,7 @@ def main():
         true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
 
         # reconstruction
-        gray_rec = model(gray_batch)
+        gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
         joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
 
         # segmentation
@@ -217,7 +217,7 @@ def main():
         # 顯示指定 index 的圖片
         if i_batch in display_indices:
             t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
-            display_images[cnt_display] = gray_rec[0]
+            display_images[cnt_display] = gray_rec[0] #gray_rec 是 tensor，可以正確 .detach() 和做 indexing
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
