@@ -256,33 +256,7 @@ def main():
             axes[0, 1].axis('off')  
             
             #預測異常遮罩
-            original_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)  
-            mask_overlay = t_mask[0, 0].detach().cpu().numpy()  
-
-            # 閾值化突出顯示 - 使用疊加方式  
-            # threshold = 0.3  
-            # high_confidence_mask = np.where(mask_overlay > threshold, mask_overlay, 0)  
-            # axes[1, 0].imshow(original_img, cmap='gray')  
-            # axes[1, 0].imshow(high_confidence_mask, cmap='Reds', alpha=0.8, vmin=0, vmax=1)
-
-            # 找出異常區域的輪廓  
-            threshold = 0.5  
-            binary_mask = mask_overlay > threshold  
-            binary_mask_uint8 = (binary_mask * 255).astype(np.uint8)  
-            contours, _ = cv2.findContours(binary_mask_uint8, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)  
-            
-            # 在原始圖像上畫出輪廓  
-            img_with_contours = original_img.copy()  
-            for contour in contours:  
-                cv2.drawContours(img_with_contours, [contour], -1, (1, 0, 0), 2)  # 紅色輪廓  
-            
-            axes[1,0].imshow(img_with_contours)  
-
-            # 使用更強烈的色彩映射  
-            # axes[1, 0].imshow(original_img, cmap='gray')  
-            # im = axes[1, 0].imshow(mask_overlay, cmap='jet', alpha=0.7, vmin=0, vmax=1)  
-            # plt.colorbar(im, ax=axes[1, 0], fraction=0.046, pad=0.04)
-
+            axes[1, 0].imshow(t_mask[0].detach().cpu().numpy(), cmap='hot') 
             axes[1, 0].set_title('Predicted Anomaly Overlay')
             axes[1, 0].axis('off')
             
