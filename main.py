@@ -285,19 +285,19 @@ def main():
             # plt.close()  
             cnt_display += 1
 
-        heatmap = display_out_masks.cpu().numpy()
-        fig ,axes = plt.subplots(4,4,figsize=(12,12))
-        for i in range(16):
-            row, col = i // 4, i % 4
-            axes[row,col].imshow(heatmap[i,0], cmap='hot',interpolation='nearest')
-            axes[row,col].set_title(f"Heatmap {i+1}")
-            axes[row,col].axis('off')
-        # 保存圖片
-        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-        print(f"Saving image to: {save_path}")  # 除錯用 
-        plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
-        plt.show()  # 加上這行來顯示圖片  
-        plt.close()  
+        # heatmap = display_out_masks.cpu().numpy()
+        # fig ,axes = plt.subplots(4,4,figsize=(12,12))
+        # for i in range(16):
+        #     row, col = i // 4, i % 4
+        #     axes[row,col].imshow(heatmap[i,0], cmap='hot',interpolation='nearest')
+        #     axes[row,col].set_title(f"Heatmap {i+1}")
+        #     axes[row,col].axis('off')
+        # # 保存圖片
+        # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+        # print(f"Saving image to: {save_path}")  # 除錯用 
+        # plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
+        # plt.show()  # 加上這行來顯示圖片  
+        # plt.close()  
 
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
 
@@ -309,6 +309,32 @@ def main():
 
         flat_true_mask = true_mask_cv.flatten()
         flat_out_mask = out_mask_cv.flatten()
+
+        # 先還原回 2D
+        h, w = true_mask_cv.shape[-2], true_mask_cv.shape[-1]
+        img_true = flat_true_mask.reshape(h, w)
+        img_out = flat_out_mask.reshape(h, w)
+
+        # 顯示比較圖
+        plt.figure(figsize=(10, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.imshow(img_true, cmap='gray')
+        plt.title("True Mask")
+        plt.axis("off")
+
+        plt.subplot(1, 2, 2)
+        plt.imshow(img_out, cmap='gray')
+        plt.title("Predicted Mask")
+        plt.axis("off")
+
+        # 存檔 + 顯示
+        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
+        print(f"Saving image to: {save_path}")  # 除錯用
+        plt.savefig(save_path)
+        plt.show()
+        plt.close()
+
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
