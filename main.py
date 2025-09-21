@@ -231,22 +231,27 @@ def main():
         # 取異常區域 channel
         anomaly = out_mask_sm[:, 1:, :, :]  # (B, 1, H, W)
 
-        # 將 anomaly resize 回原圖大小 (H, W)
+        # anomaly 原本是 (B,1,H,W)
         anomaly_resized = F.interpolate(anomaly, size=(gray_batch.size(2), gray_batch.size(3)),
                                         mode='bilinear', align_corners=False)
 
-        # 異常圖正規化 (0~1)
+        # 正規化
         anomaly_min = anomaly_resized.min(dim=2, keepdim=True)[0].min(dim=3, keepdim=True)[0]
         anomaly_max = anomaly_resized.max(dim=2, keepdim=True)[0].max(dim=3, keepdim=True)[0]
         anomaly_norm = (anomaly_resized - anomaly_min) / (anomaly_max - anomaly_min + 1e-8)
-        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)
+        anomaly_rgb = anomaly_norm.repeat(1, 3, 1, 1)  # 現在尺寸 (B,3,H,W)
 
         # 計算重建誤差
         error_map = torch.abs(gray_batch - gray_rec)
         error_rgb = error_map.repeat(1, 3, 1, 1)
 
+        print(gray_batch.shape, error_rgb.shape, anomaly_rgb.shape)
         # 拼接顯示: 原圖 | 重建誤差 | segmentation heatmap
-        combined = torch.cat([gray_batch.repeat(1, 3, 1, 1), error_rgb, anomaly_rgb], dim=3)
+        combined = torch.cat([
+            gray_batch.repeat(1,3,1,1),  # 原圖
+            error_rgb,                    # 重建誤差
+            anomaly_rgb                   # segmentation heatmap
+        ], dim=3)  # 沿寬度拼接
 
         # 儲存比較圖
         save_image(combined, f"{inference_results}/comparison_batch{i_batch+1}.png")
