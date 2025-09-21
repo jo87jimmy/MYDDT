@@ -307,24 +307,17 @@ def main():
 
         anomaly_score_prediction.append(image_score)
 
-        flat_true_mask = true_mask_cv.flatten()
-        flat_out_mask = out_mask_cv.flatten()
-
-        # 先還原回 2D
-        h, w = true_mask_cv.shape[-2], true_mask_cv.shape[-1]
-        img_true = flat_true_mask.reshape(h, w)
-        img_out = flat_out_mask.reshape(h, w)
 
         # 顯示比較圖
         plt.figure(figsize=(10, 5))
 
         plt.subplot(1, 2, 1)
-        plt.imshow(img_true, cmap='gray')
+        plt.imshow(true_mask_cv, cmap='gray')
         plt.title("True Mask")
         plt.axis("off")
 
         plt.subplot(1, 2, 2)
-        plt.imshow(img_out, cmap='gray')
+        plt.imshow(out_mask_cv, cmap='gray')
         plt.title("Predicted Mask")
         plt.axis("off")
 
@@ -334,6 +327,9 @@ def main():
         plt.savefig(save_path)
         plt.show()
         plt.close()
+
+        flat_true_mask = true_mask_cv.flatten()
+        flat_out_mask = out_mask_cv.flatten()
 
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
