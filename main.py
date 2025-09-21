@@ -225,7 +225,8 @@ def main():
 
         # reconstruction
         with torch.no_grad():
-            gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
+            gray_rec = model(gray_batch)# 只要 output，不需要 aligned_feats
+            # gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
             joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
 
             # segmentation
