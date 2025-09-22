@@ -248,6 +248,17 @@ def main():
             display_in_masks[cnt_display] = true_mask[0]
             cnt_display += 1
 
+        # Convert tensor to a numpy array and move it to the CPU
+        image = gray_batch.permute(0, 2, 3, 1).cpu().numpy()
+
+        # Display all images in the batch
+        plt.imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
+        plt.title('Original Image')
+        save_path = f"{inference_results}/Original Image{i_batch+1}.png"
+        print(f"Saving Original Image to: {save_path}")  # 除錯訊息
+        plt.savefig(save_path)
+        plt.show()
+
         # 計算 pixel-level score
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()# 第0張圖的單通道
         # 直接顯示概率遮罩
