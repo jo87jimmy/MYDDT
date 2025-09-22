@@ -97,303 +97,219 @@ class MVTecDataset(torch.utils.data.Dataset):
         return img, (torch.tensor(label, dtype=torch.long), mask)
 
 def write_results_to_file(run_name, image_auc, pixel_auc, image_ap, pixel_ap):
+    # 檢查是否存在輸出資料夾，若不存在則建立
     if not os.path.exists('./outputs/'):
         os.makedirs('./outputs/')
 
+    # 構建結果字串，依序記錄不同指標
     fin_str = "img_auc,"+run_name
-    for i in image_auc:
+    for i in image_auc:  # 逐一加入影像層級的 AUC
         fin_str += "," + str(np.round(i, 3))
-    fin_str += ","+str(np.round(np.mean(image_auc), 3))
+    fin_str += ","+str(np.round(np.mean(image_auc), 3))  # 加入平均值
     fin_str += "\n"
     fin_str += "pixel_auc,"+run_name
-    for i in pixel_auc:
+    for i in pixel_auc:  # 逐一加入像素層級的 AUC
         fin_str += "," + str(np.round(i, 3))
     fin_str += ","+str(np.round(np.mean(pixel_auc), 3))
     fin_str += "\n"
     fin_str += "img_ap,"+run_name
-    for i in image_ap:
+    for i in image_ap:  # 逐一加入影像層級的 AP
         fin_str += "," + str(np.round(i, 3))
     fin_str += ","+str(np.round(np.mean(image_ap), 3))
     fin_str += "\n"
     fin_str += "pixel_ap,"+run_name
-    for i in pixel_ap:
+    for i in pixel_ap:  # 逐一加入像素層級的 AP
         fin_str += "," + str(np.round(i, 3))
     fin_str += ","+str(np.round(np.mean(pixel_ap), 3))
     fin_str += "\n"
     fin_str += "--------------------------\n"
 
+    # 將結果寫入檔案（附加模式）
     with open("./outputs/results.txt",'a+') as file:
         file.write(fin_str)
 
 # =======================
-# Main Pipeline
+# Main Pipeline 主流程
 # =======================
 def main():
-       # 解析命令列參數
+    # 解析命令列參數
     parser = argparse.ArgumentParser()
     parser.add_argument('--category', default='bottle', type=str)  # 訓練類別
     parser.add_argument('--epochs', default=25, type=int)  # 訓練回合數
     parser.add_argument('--arch', default='wres50', type=str)  # 模型架構
-    parser.add_argument('--bs', action='store', type=int, required=True)
-    parser.add_argument('--lr', action='store', type=float, required=True)
-    parser.add_argument('--train_bool', action='store_true', help='是否進行訓練')
+    parser.add_argument('--bs', action='store', type=int, required=True)  # batch size
+    parser.add_argument('--lr', action='store', type=float, required=True)  # 學習率
+    parser.add_argument('--train_bool', action='store_true', help='是否進行訓練')  # 是否訓練
     args = parser.parse_args()
-    img_dim = 256  # 影像尺寸
-    obj_ap_pixel_list = []
-    obj_auroc_pixel_list = []
-    obj_ap_image_list = []
-    obj_auroc_image_list = []
 
-    setup_seed(111)  # 固定隨機種子
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    img_dim = 256  # 設定影像尺寸
+    obj_ap_pixel_list = []       # 紀錄像素層級 AP
+    obj_auroc_pixel_list = []    # 紀錄像素層級 AUC
+    obj_ap_image_list = []       # 紀錄影像層級 AP
+    obj_auroc_image_list = []    # 紀錄影像層級 AUC
+
+    setup_seed(111)  # 固定隨機種子，確保實驗可重現
+    device = "cuda" if torch.cuda.is_available() else "cpu"  # 選擇 GPU 或 CPU
 
     path = f'./mvtec'  # 訓練資料路徑
 
-
-    # 載入驗證資料集，切分方式為 "test"，同樣調整影像尺寸為 256x256
+    # 載入驗證資料集 (測試集)，影像大小為 256x256
     dataset = MVTecDataset(root=path, category=args.category, split="test", resize=256)
-    # 建立驗證資料的 DataLoader，設定每批次大小為 8，不打亂資料順序，使用 4 個執行緒加速載入
+    # 建立 DataLoader，每批次大小為 args.bs，不打亂，使用 4 個執行緒載入
     dataLoader = DataLoader(dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
-    # Load model
-    # 載入模型的檢查點（checkpoint）檔案，並指定載入到的裝置（如 GPU 或 CPU）
-    model_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle_.pckl", map_location=device,weights_only=True)
-    model = ReconstructiveSubNetwork(in_channels=3, out_channels=3).to(device)
-    # 建立模型的結構，輸入與輸出通道皆為 3（RGB），並移動到指定裝置上
-    # model = StudentReconstructiveSubNetwork(
-    #         in_channels=3,
-    #         out_channels=3,
-    #         base_width=64,# 壓縮後的維度
-    #         teacher_base_width=128# 教師模型的維度
-    #     ).to(device)
-    # 將模型的參數載入至模型中，使用 checkpoint 中的 'reconstructive' 欄位
-    model.load_state_dict(model_ckpt)
-    # 將模型設為評估模式，停用 Dropout、BatchNorm 等訓練專用機制
-    model.eval()
+    # 載入重建模型 checkpoint
+    model_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle_.pckl", map_location=device, weights_only=True)
+    model = ReconstructiveSubNetwork(in_channels=3, out_channels=3).to(device)  # 初始化模型結構
+    model.load_state_dict(model_ckpt)  # 載入權重
+    model.eval()  # 設為推論模式
 
-    # Load segmentation model
-    # 載入模型的檢查點（checkpoint）檔案，並指定載入到的裝置（如 GPU 或 CPU）
-    model_seg_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle__seg.pckl", map_location=device,weights_only=True)
-    # 建立模型的結構，輸入與輸出通道皆為 3（RGB），並移動到指定裝置上
-    model_seg = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(device)
-    # 將模型的參數載入至模型中，使用 checkpoint 中的 'reconstructive' 欄位
-    model_seg.load_state_dict(model_seg_ckpt)
-    # 將模型設為評估模式，停用 Dropout、BatchNorm 等訓練專用機制
-    model_seg.eval()   
-    
-    # 主儲存資料夾路徑
+    # 載入分割模型 checkpoint
+    model_seg_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle__seg.pckl", map_location=device, weights_only=True)
+    model_seg = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(device)  # 初始化分割模型
+    model_seg.load_state_dict(model_seg_ckpt)  # 載入權重
+    model_seg.eval()
+
+    # 建立主存檔資料夾
     save_root = "./save_files"
-
-    # 若主資料夾不存在，則建立
     if not os.path.exists(save_root):
         os.makedirs(save_root)
 
-    total_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))
-    total_gt_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))
-    mask_cnt = 0
+    # 建立全域統計用的陣列
+    total_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))     # 模型預測分數
+    total_gt_pixel_scores = np.zeros((img_dim * img_dim * len(dataset)))  # 真實標註
+    mask_cnt = 0  # 計算 mask 數量
 
-    anomaly_score_gt = []
-    anomaly_score_prediction = []
+    anomaly_score_gt = []          # 儲存 ground truth (0=正常,1=異常)
+    anomaly_score_prediction = []  # 儲存預測分數
 
+    # 儲存顯示用影像
     display_images = torch.zeros((16 ,3 ,256 ,256)).cuda()
     display_gt_images = torch.zeros((16 ,3 ,256 ,256)).cuda()
     display_out_masks = torch.zeros((16 ,1 ,256 ,256)).cuda()
     display_in_masks = torch.zeros((16 ,1 ,256 ,256)).cuda()
     cnt_display = 0
+    # 隨機選 16 個批次索引
     display_indices = np.random.randint(len(dataLoader), size=(16,))
 
-    # 設定推論結果儲存的資料夾路徑為 save_root/inference_results
+    # 推論結果輸出資料夾
     inference_results = os.path.join(save_root, "inference_results")
-    # 若資料夾不存在則建立，用來儲存推論圖像與報告
     os.makedirs(inference_results, exist_ok=True)
 
+    # =========================
+    # 推論迴圈
+    # =========================
     for i_batch, sample_batched in enumerate(dataLoader):
-        # Dataset 回傳: (image, (label, mask))
-        gray_batch, (labels, true_mask) = sample_batched
+        gray_batch, (labels, true_mask) = sample_batched  # 取得影像、標籤與 mask
 
         # 搬到 GPU
         gray_batch = gray_batch.cuda()
         labels = labels.cuda()
         true_mask = true_mask.cuda()
 
-        # is_normal: 0 = good, 1 = anomaly
+        # ground truth: 0=正常,1=異常
         is_normal = labels.detach().cpu().numpy()[0]
         anomaly_score_gt.append(is_normal)
 
-        # 把 mask 轉成 numpy 格式 (H, W, C)
+        # 轉成 numpy 格式 (H, W, C)
         true_mask_cv = true_mask.detach().cpu().numpy()[0, :, :, :].transpose((1, 2, 0))
 
-        # reconstruction
+        # 模型推論
         with torch.no_grad():
-            gray_rec = model(gray_batch)# 只要 output，不需要 aligned_feats
-            # gray_rec,_ = model(gray_batch)# 只要 output，不需要 aligned_feats
-            joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)
+            gray_rec = model(gray_batch)  #gray_rec:重建影像，gray_batch:原始圖像
+            # gray_rec[重建影像](B, 3, H, W)，joined_in[拼接原始輸入與重建影像](B, 6, H, W)
+            joined_in = torch.cat((gray_rec.detach(), gray_batch), dim=1)  # 拼接輸入
+            #將重建網路的3通道輸出和原始影像輸入給分割網路
+            out_mask = model_seg(joined_in)  # 分割模型推論，逐像素分割，差異越大的地方，越可能是「異常區域」
+            # Softmax 機率圖
+            #把 logits 轉成機率。shape 還是 (B, C, H, W)，但現在每個 pixel 的 C 個通道加總 = 1。
+            #例如某個 pixel：
+            #out_mask_sm[b, :, y, x] = [0.95, 0.05] → 95% 正常, 5% 異常
+            out_mask_sm = torch.softmax(out_mask, dim=1)  # out_mask_sm shape 是 (B, C, H, W)，B = batch size，C = channel 數(分類數)，H, W = 高寬
 
-            # segmentation
-            out_mask = model_seg(joined_in)
-            out_mask_sm = torch.softmax(out_mask, dim=1)
-
-        # 顯示指定 index 的圖片
+        # 若該批次在隨機顯示列表中，則繪製結果
         if i_batch in display_indices:
-            #out_mask_sm[:, 0, :, :] 是正常區域的機率
-            #out_mask_sm[:, 1, :, :] 是異常區域的機率
-            t_mask = out_mask_sm[:, 1:, :, :]   # 取出異常區域 channel
-            display_images[cnt_display] = gray_rec[0] #gray_rec 是 tensor，可以正確 .detach() 和做 indexing
+            t_mask = out_mask_sm[:, 1:, :, :]   # 取異常機率圖
+            display_images[cnt_display] = gray_rec[0] 
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
+            # 原始圖像
+            orig_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
+            # softmax 異常機率圖 (未閾值化，保留 0~1)
+            anomaly_prob = out_mask_sm[0, 1].detach().cpu().numpy()
 
-            # 應用閾值獲得異常區塊    
-            threshold = 0.5  # 可調整閾值    
-            binary_mask = (out_mask_sm[:, 1, :, :] > threshold).float() 
+            # 繪圖顯示
+            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+            axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))
+            axes[0, 0].set_title('Reconstructed Image'); axes[0, 0].axis('off')
 
-            # 新增直接顯示圖片的程式碼  
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))  
-            
-            # 顯示重建圖片  
-            axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))  
-            axes[0, 0].set_title('Reconstructed Image')  
-            axes[0, 0].axis('off')  
-            
-            # 顯示原始圖片  
-            axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))  
-            axes[0, 1].set_title('Original Image')  
-            axes[0, 1].axis('off')  
-            
-            #檢測異常遮罩
-            axes[1, 0].imshow(binary_mask[0].cpu().numpy(), cmap='Reds', alpha=0.6, vmin=0, vmax=1)
-            axes[1, 0].set_title('Anomaly Detection')
+            axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))
+            axes[0, 1].set_title('Original Image'); axes[0, 1].axis('off')
+
+            axes[1, 0].imshow(orig_img)  # 先畫原圖
+            axes[1, 0].imshow(anomaly_prob, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  # 疊上紅色熱力圖
+            axes[1, 0].set_title('Anomaly Detection Overlay')
             axes[1, 0].axis('off')
-            
-            # 顯示真實的異常遮罩  
-            axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')  
-            axes[1, 1].set_title('Ground Truth Mask')  
-            axes[1, 1].axis('off')  
 
-            # 保存圖片
-            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-            print(f"Saving image to: {save_path}")  # 除錯用 
-            plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
-            plt.show()  # 加上這行來顯示圖片  
-            plt.close()  
+            axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')
+            axes[1, 1].set_title('Ground Truth Mask'); axes[1, 1].axis('off')
+
+            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
+            print(f"Saving image to: {save_path}")  # 除錯訊息
+            plt.savefig(save_path)
+            plt.show()
+            plt.close()
             cnt_display += 1
 
-        # heatmap = display_out_masks.cpu().numpy()
-        # fig ,axes = plt.subplots(4,4,figsize=(12,12))
-        # for i in range(16):
-        #     row, col = i // 4, i % 4
-        #     axes[row,col].imshow(heatmap[i,0], cmap='hot',interpolation='nearest')
-        #     axes[row,col].set_title(f"Heatmap {i+1}")
-        #     axes[row,col].axis('off')
-        # # 保存圖片
-        # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-        # print(f"Saving image to: {save_path}")  # 除錯用 
-        # plt.savefig(f"{inference_results}/comparison_batch{i_batch+1}.png") 
-        # plt.show()  # 加上這行來顯示圖片  
-        # plt.close()  
-
-        out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()
-
+        # 計算 pixel-level score
+        out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()# 第0張圖的單通道
         out_mask_averaged = torch.nn.functional.avg_pool2d(out_mask_sm[: ,1: ,: ,:], 21, stride=1,
-                                                            padding=21 // 2).cpu().detach().numpy()
-        image_score = np.max(out_mask_averaged)
-
+                                                           padding=21 // 2).cpu().detach().numpy()
+        image_score = np.max(out_mask_averaged)  # 單張影像分數
         anomaly_score_prediction.append(image_score)
 
-
-        # # 顯示比較圖
-        # plt.figure(figsize=(10, 5))
-
-        # plt.subplot(1, 2, 1)
-        # plt.imshow(true_mask_cv, cmap='gray')
-        # plt.title("True Mask")
-        # plt.axis("off")
-
-        # plt.subplot(1, 2, 2)
-        # plt.imshow(out_mask_cv, cmap='gray')
-        # plt.title("Predicted Mask")
-        # plt.axis("off")
-
-        # # 存檔 + 顯示
-        # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png" 
-        # print(f"Saving image to: {save_path}")  # 除錯用
-        # plt.savefig(save_path)
-        # plt.show()
-        # plt.close()
-
+        # 攤平成 1D，儲存像素分數
         flat_true_mask = true_mask_cv.flatten()
         flat_out_mask = out_mask_cv.flatten()
-
         total_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_out_mask
         total_gt_pixel_scores[mask_cnt * img_dim * img_dim:(mask_cnt + 1) * img_dim * img_dim] = flat_true_mask
         mask_cnt += 1
 
-    # # 保存定性結果  
-    # for idx in range(min(cnt_display, 16)):  
-    #     fig, axes = plt.subplots(1, 4, figsize=(16, 4))  
-        
-    #     # 原始圖像  
-    #     orig_img = display_gt_images[idx].cpu().numpy().transpose(1, 2, 0)  
-    #     axes[0].imshow(orig_img)  
-    #     axes[0].set_title('Original Image')  
-    #     axes[0].axis('off')  
-        
-    #     # 異常圖疊加  
-    #     anomaly_overlay = orig_img.copy()  
-    #     anomaly_map = display_out_masks[idx, 0].cpu().numpy()  
-    #     # 創建熱力圖疊加  
-    #     heatmap = plt.cm.jet(anomaly_map)[:, :, :3]  
-    #     anomaly_overlay = 0.7 * orig_img + 0.3 * heatmap  
-    #     axes[1].imshow(anomaly_overlay)  
-    #     axes[1].set_title('Anomaly Map Overlay')  
-    #     axes[1].axis('off')  
-        
-    #     # 異常圖  
-    #     axes[2].imshow(anomaly_map, cmap='jet')  
-    #     axes[2].set_title('Anomaly Map')  
-    #     axes[2].axis('off')  
-        
-    #     # 真實標註  
-    #     gt_mask = display_in_masks[idx, 0].cpu().numpy()  
-    #     axes[3].imshow(gt_mask, cmap='gray')  
-    #     axes[3].set_title('Ground Truth')  
-    #     axes[3].axis('off')  
-        
-    #     plt.tight_layout()  
-    #     # 存檔 + 顯示
-    #     save_path = f"{inference_results}/comparison_batch{idx}.png" 
-    #     print(f"Saving image to: {save_path}")  # 除錯用
-    #     plt.savefig(save_path)
-    #     plt.show()
-    #     plt.close()
-
+    # =========================
+    # 評估指標計算
+    # =========================
     anomaly_score_prediction = np.array(anomaly_score_prediction)
     anomaly_score_gt = np.array(anomaly_score_gt)
-    auroc = roc_auc_score(anomaly_score_gt, anomaly_score_prediction)
-    ap = average_precision_score(anomaly_score_gt, anomaly_score_prediction)
+    auroc = roc_auc_score(anomaly_score_gt, anomaly_score_prediction)  # 影像層級 AUC
+    ap = average_precision_score(anomaly_score_gt, anomaly_score_prediction)  # 影像層級 AP
 
     total_gt_pixel_scores = total_gt_pixel_scores.astype(np.uint8)
     total_gt_pixel_scores = total_gt_pixel_scores[:img_dim * img_dim * mask_cnt]
     total_pixel_scores = total_pixel_scores[:img_dim * img_dim * mask_cnt]
-    auroc_pixel = roc_auc_score(total_gt_pixel_scores, total_pixel_scores)
-    ap_pixel = average_precision_score(total_gt_pixel_scores, total_pixel_scores)
+    auroc_pixel = roc_auc_score(total_gt_pixel_scores, total_pixel_scores)  # 像素層級 AUC
+    ap_pixel = average_precision_score(total_gt_pixel_scores, total_pixel_scores)  # 像素層級 AP
+
+    # 儲存到列表
     obj_ap_pixel_list.append(ap_pixel)
     obj_auroc_pixel_list.append(auroc_pixel)
     obj_auroc_image_list.append(auroc)
     obj_ap_image_list.append(ap)
+
+    # 輸出結果
     print(args.category)
     print("AUC Image:  " +str(auroc))
     print("AP Image:  " +str(ap))
     print("AUC Pixel:  " +str(auroc_pixel))
     print("AP Pixel:  " +str(ap_pixel))
     print("==============================")
-
     print(args.category)
     print("AUC Image mean:  " + str(np.mean(obj_auroc_image_list)))
     print("AP Image mean:  " + str(np.mean(obj_ap_image_list)))
     print("AUC Pixel mean:  " + str(np.mean(obj_auroc_pixel_list)))
     print("AP Pixel mean:  " + str(np.mean(obj_ap_pixel_list)))
 
+    # 將結果寫入檔案
     write_results_to_file(args.category, obj_auroc_image_list, obj_auroc_pixel_list, obj_ap_image_list, obj_ap_pixel_list)
 
 
