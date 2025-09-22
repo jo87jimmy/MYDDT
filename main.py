@@ -204,23 +204,24 @@ def main():
 
         # 搬到 GPU
         gray_batch = gray_batch.cuda()
-        labels = labels.cuda()
         true_mask = true_mask.cuda()
 
-        # Convert tensor to a numpy array and move it to the CPU
-        image = gray_batch.permute(0, 2, 3, 1).cpu().numpy()
+        # Convert tensor to a numpy array and move it to the CPU for display
+        # 注意：permute 的維度順序也要正確
+        image_np = gray_batch.permute(0, 2, 3, 1).cpu().numpy()
 
         # Display all images in the batch
-        for i in range(image.shape[0]):
-            plt.imshow(image[i], cmap='gray')
+        for i in range(image_np.shape[0]):
+            plt.imshow(image_np[i]) # 影像是 RGB，不需要 cmap='gray'
             plt.title('Original Image')
-            save_path = f"{inference_results}/Original Image{i}.png"
+            save_path = f"{inference_results}/Original Image{i_batch+1}.png"
             print(f"Saving Original Image to: {save_path}")  # 除錯訊息
             plt.savefig(save_path)
             plt.show()
 
-        # ground truth: 0=正常,1=異常
-        is_normal = labels.detach().cpu().numpy()[0]
+        # 取得異常標籤 (0 for normal, 1 for anomaly)
+        # labels 是一個批次的標籤，我們取第一個作為代表
+        is_normal = labels.detach().numpy()[0] 
         anomaly_score_gt.append(is_normal)
 
         # 轉成 numpy 格式 (H, W, C)
@@ -248,16 +249,13 @@ def main():
             display_in_masks[cnt_display] = true_mask[0]
             cnt_display += 1
 
-        # Convert tensor to a numpy array and move it to the CPU
-        image = gray_batch.permute(0, 2, 3, 1).cpu().numpy()
-
         # Display all images in the batch
-        plt.imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
-        plt.title('Original Image')
-        save_path = f"{inference_results}/Original Image{i_batch+1}.png"
-        print(f"Saving Original Image to: {save_path}")  # 除錯訊息
-        plt.savefig(save_path)
-        plt.show()
+        # plt.imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0), cmap='gray')
+        # plt.title('Original Image')
+        # save_path = f"{inference_results}/Original Image{i_batch+1}.png"
+        # print(f"Saving Original Image to: {save_path}")  # 除錯訊息
+        # plt.savefig(save_path)
+        # plt.show()
 
         # 計算 pixel-level score
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()# 第0張圖的單通道
