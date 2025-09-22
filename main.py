@@ -207,6 +207,18 @@ def main():
         labels = labels.cuda()
         true_mask = true_mask.cuda()
 
+        # Convert tensor to a numpy array and move it to the CPU
+        image = gray_batch.permute(0, 2, 3, 1).cpu().numpy()
+
+        # Display all images in the batch
+        for i in range(image.shape[0]):
+            plt.imshow(image[i], cmap='gray')
+            plt.title('Original Image')
+            save_path = f"{inference_results}/Original Image{i}.png"
+            print(f"Saving Original Image to: {save_path}")  # 除錯訊息
+            plt.savefig(save_path)
+            plt.show()
+
         # ground truth: 0=正常,1=異常
         is_normal = labels.detach().cpu().numpy()[0]
         anomaly_score_gt.append(is_normal)
@@ -234,41 +246,14 @@ def main():
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
-            # # 原始圖像
-            # orig_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
-            # # softmax 異常機率圖 (未閾值化，保留 0~1)
-            # anomaly_prob = out_mask_sm[0, 1].detach().cpu().numpy()
-
-            # # 繪圖顯示
-            # fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-            # axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))
-            # axes[0, 0].set_title('Reconstructed Image'); axes[0, 0].axis('off')
-
-            # axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))
-            # axes[0, 1].set_title('Original Image'); axes[0, 1].axis('off')
-
-            # axes[1, 0].imshow(orig_img)  # 先畫原圖
-            # axes[1, 0].imshow(anomaly_prob, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  # 疊上紅色熱力圖
-            # axes[1, 0].set_title('Anomaly Detection Overlay')
-            # axes[1, 0].axis('off')
-
-            # axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')
-            # axes[1, 1].set_title('Ground Truth Mask'); axes[1, 1].axis('off')
-
-            # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
-            # print(f"Saving image to: {save_path}")  # 除錯訊息
-            # plt.savefig(save_path)
-            # plt.show()
-            # plt.close()
             cnt_display += 1
 
         # 計算 pixel-level score
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()# 第0張圖的單通道
         # 直接顯示概率遮罩
-        plt.imshow(out_mask_cv, cmap='hot')
-        plt.colorbar()
-        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
-        print(f"Saving image to: {save_path}")  # 除錯訊息
+        plt.imshow(out_mask_cv)
+        save_path = f"{inference_results}/out_mask_cv{i_batch+1}.png"
+        print(f"Saving out_mask_cv image to: {save_path}")  # 除錯訊息
         plt.savefig(save_path)
         plt.show()
 
