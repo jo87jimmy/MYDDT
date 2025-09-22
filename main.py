@@ -159,13 +159,13 @@ def main():
     dataLoader = DataLoader(dataset, batch_size=args.bs, shuffle=False, num_workers=4)
 
     # 載入重建模型 checkpoint
-    model_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_capsule_.pckl", map_location=device, weights_only=True)
+    model_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle_.pckl", map_location=device, weights_only=True)
     model = ReconstructiveSubNetwork(in_channels=3, out_channels=3).to(device)  # 初始化模型結構
     model.load_state_dict(model_ckpt)  # 載入權重
     model.eval()  # 設為推論模式
 
     # 載入分割模型 checkpoint
-    model_seg_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_capsule__seg.pckl", map_location=device, weights_only=True)
+    model_seg_ckpt = torch.load("DRAEM_seg_large_ae_large_0.0001_800_bs8_bottle__seg.pckl", map_location=device, weights_only=True)
     model_seg = DiscriminativeSubNetwork(in_channels=6, out_channels=2).to(device)  # 初始化分割模型
     model_seg.load_state_dict(model_seg_ckpt)  # 載入權重
     model_seg.eval()
