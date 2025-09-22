@@ -230,40 +230,54 @@ def main():
         # 若該批次在隨機顯示列表中，則繪製結果
         if i_batch in display_indices:
             t_mask = out_mask_sm[:, 1:, :, :]   # 取異常機率圖
-            display_images[cnt_display] = gray_rec[0] 
+            display_images[cnt_display] = gray_rec[0]
             display_gt_images[cnt_display] = gray_batch[0]
             display_out_masks[cnt_display] = t_mask[0]
             display_in_masks[cnt_display] = true_mask[0]
-            # 原始圖像
-            orig_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
-            # softmax 異常機率圖 (未閾值化，保留 0~1)
-            anomaly_prob = out_mask_sm[0, 1].detach().cpu().numpy()
+            # # 原始圖像
+            # orig_img = gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0)
+            # # softmax 異常機率圖 (未閾值化，保留 0~1)
+            # anomaly_prob = out_mask_sm[0, 1].detach().cpu().numpy()
 
-            # 繪圖顯示
-            fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-            axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))
-            axes[0, 0].set_title('Reconstructed Image'); axes[0, 0].axis('off')
+            # # 繪圖顯示
+            # fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+            # axes[0, 0].imshow(gray_rec[0].detach().cpu().numpy().transpose(1, 2, 0))
+            # axes[0, 0].set_title('Reconstructed Image'); axes[0, 0].axis('off')
 
-            axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))
-            axes[0, 1].set_title('Original Image'); axes[0, 1].axis('off')
+            # axes[0, 1].imshow(gray_batch[0].detach().cpu().numpy().transpose(1, 2, 0))
+            # axes[0, 1].set_title('Original Image'); axes[0, 1].axis('off')
 
-            axes[1, 0].imshow(orig_img)  # 先畫原圖
-            axes[1, 0].imshow(anomaly_prob, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  # 疊上紅色熱力圖
-            axes[1, 0].set_title('Anomaly Detection Overlay')
-            axes[1, 0].axis('off')
+            # axes[1, 0].imshow(orig_img)  # 先畫原圖
+            # axes[1, 0].imshow(anomaly_prob, cmap='Reds', alpha=0.6, vmin=0, vmax=1)  # 疊上紅色熱力圖
+            # axes[1, 0].set_title('Anomaly Detection Overlay')
+            # axes[1, 0].axis('off')
 
-            axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')
-            axes[1, 1].set_title('Ground Truth Mask'); axes[1, 1].axis('off')
+            # axes[1, 1].imshow(true_mask[0, 0].detach().cpu().numpy(), cmap='hot')
+            # axes[1, 1].set_title('Ground Truth Mask'); axes[1, 1].axis('off')
 
-            save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
-            print(f"Saving image to: {save_path}")  # 除錯訊息
-            plt.savefig(save_path)
-            plt.show()
-            plt.close()
+            # save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
+            # print(f"Saving image to: {save_path}")  # 除錯訊息
+            # plt.savefig(save_path)
+            # plt.show()
+            # plt.close()
             cnt_display += 1
 
         # 計算 pixel-level score
         out_mask_cv = out_mask_sm[0 ,1 ,: ,:].detach().cpu().numpy()# 第0張圖的單通道
+        # 直接顯示概率遮罩
+        plt.imshow(out_mask_cv, cmap='hot')
+        plt.colorbar()
+        save_path = f"{inference_results}/comparison_batch{i_batch+1}.png"
+        print(f"Saving image to: {save_path}")  # 除錯訊息
+        plt.savefig(save_path)
+        plt.show()
+
+        # 或者轉換為 0-255 範圍並保存
+        mask_image = (out_mask_cv * 255).astype(np.uint8)
+        mask_save_path = f"{inference_results}/defect_mask_batch{i_batch+1}.png"
+        cv2.imwrite(mask_save_path, mask_image)
+        print(f"Saving mask to: {mask_save_path}")
+
         out_mask_averaged = torch.nn.functional.avg_pool2d(out_mask_sm[: ,1: ,: ,:], 21, stride=1,
                                                            padding=21 // 2).cpu().detach().numpy()
         image_score = np.max(out_mask_averaged)  # 單張影像分數
